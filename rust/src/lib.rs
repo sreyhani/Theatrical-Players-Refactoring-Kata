@@ -15,44 +15,53 @@ pub fn statement(invoice: Value, plays: Value) -> String {
 
     for perf in invoice["performances"].as_array().unwrap() {
         let play = &plays[perf["playID"].as_str().unwrap()];
-        let mut this_amount;
-        match play["type"].as_str().unwrap() {
-            "tragedy" => {
-                this_amount = 40000;
-                if perf["audience"].as_u64().unwrap() > 30 {
-                    this_amount += 1000 * (perf["audience"].as_u64().unwrap() - 30);
-                }
-            }
-            "comedy" => {
-                this_amount = 30000;
-                if perf["audience"].as_u64().unwrap() > 20 {
-                    this_amount += 10000 + 500 * (perf["audience"].as_u64().unwrap() - 20);
-                }
-                this_amount += 300 * perf["audience"].as_u64().unwrap();
-            }
-            play_type => {
-                panic!("unknown type:{}", play_type);
-            }
-        }
         // add volume credits
-        volume_credits += max(perf["audience"].as_u64().unwrap() - 30, 0);
-        // add extra credit for every ten comedy attendees
-        if "comedy" == play["type"].as_str().unwrap() {
-            volume_credits += (perf["audience"].as_f64().unwrap() / 5.0).floor() as u64;
-        }
+        volume_credits += volume_credits_for(perf, play);
         // print line for this order
         result += &format!(
             " {}: {} ({} seats)\n",
             play["name"].as_str().unwrap(),
-            usd(this_amount as f64 / 100 as f64).format(),
+            usd(amount_for(play, perf) as f64 / 100 as f64).format(),
             perf["audience"].as_u64().unwrap()
         );
-        total_amount += this_amount;
+        total_amount += amount_for(play, perf);
     }
     result += &format!(
         "Amount owed is {}\n",
         usd(total_amount as f64 / 100 as f64).format()
     );
     result += &format!("You earned {} credits\n", volume_credits);
+    result
+}
+
+fn volume_credits_for(perf: &Value, play: &Value) -> u64 {
+    let mut result = max(perf["audience"].as_u64().unwrap() - 30, 0);
+    // add extra credit for every ten comedy attendees
+    if "comedy" == play["type"].as_str().unwrap() {
+        result += (perf["audience"].as_f64().unwrap() / 5.0).floor() as u64;
+    }
+    result
+}
+
+fn amount_for(play: &Value, performance: &Value) -> u64 {
+    let mut result;
+    match play["type"].as_str().unwrap() {
+        "tragedy" => {
+            result = 40000;
+            if performance["audience"].as_u64().unwrap() > 30 {
+                result += 1000 * (performance["audience"].as_u64().unwrap() - 30);
+            }
+        }
+        "comedy" => {
+            result = 30000;
+            if performance["audience"].as_u64().unwrap() > 20 {
+                result += 10000 + 500 * (performance["audience"].as_u64().unwrap() - 20);
+            }
+            result += 300 * performance["audience"].as_u64().unwrap();
+        }
+        play_type => {
+            panic!("unknown type:{}", play_type);
+        }
+    }
     result
 }

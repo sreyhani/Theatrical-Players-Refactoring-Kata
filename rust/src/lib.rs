@@ -35,6 +35,7 @@ struct EnrichedPerformance<'a> {
     perf: Performance,
     plays: &'a Plays,
 }
+
 impl<'a> EnrichedPerformance<'a> {
     fn new(perf: Performance, plays: &'a Plays) -> Self {
         EnrichedPerformance { perf, plays }
@@ -107,15 +108,19 @@ fn usd(penny: u64) -> Currency {
 pub fn statement(invoice: Value, plays: Value) -> String {
     let invoice: Invoice = from_value(invoice).unwrap();
     let plays: Plays = from_value(plays).unwrap();
+    render_plain_statement(create_statement_data(&invoice, &plays))
+}
+
+fn create_statement_data<'a>(invoice: &'a Invoice, plays: &'a HashMap<String, Play>) -> StatementData<'a> {
     let data = StatementData {
-        customer: invoice.customer,
+        customer: invoice.customer.clone(),
         performances: invoice
             .performances
             .iter()
             .map(|perf| EnrichedPerformance::new(perf.clone(), &plays))
             .collect(),
     };
-    render_plain_statement(data)
+    data
 }
 
 fn render_plain_statement(data: StatementData) -> String {

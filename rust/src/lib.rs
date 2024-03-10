@@ -37,14 +37,19 @@ pub fn statement(invoice: Value, plays: Value) -> String {
         result
     };
 
-    for perf in invoice["performances"].as_array().unwrap() {
-
+    let volume_credits_for = |perf: &Value| -> u64 {
+        let mut result = 0;
         // add volume credits
-        volume_credits += max(perf["audience"].as_u64().unwrap() - 30, 0);
+        result += max(perf["audience"].as_u64().unwrap() - 30, 0);
         // add extra credit for every ten comedy attendees
         if "comedy" == play_for(perf)["type"].as_str().unwrap() {
-            volume_credits += (perf["audience"].as_f64().unwrap() / 5.0).floor() as u64;
+            result += (perf["audience"].as_f64().unwrap() / 5.0).floor() as u64;
         }
+        result
+    };
+
+    for perf in invoice["performances"].as_array().unwrap() {
+        volume_credits += volume_credits_for(perf);
         // print line for this order
         result += &format!(
             " {}: {} ({} seats)\n",

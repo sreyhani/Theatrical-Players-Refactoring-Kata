@@ -2,19 +2,56 @@ use std::cmp::max;
 
 use crate::types::{Invoice, Performance, Play, Plays};
 
+trait PerformanceCalculator {
+    fn amount(&self) -> u64;
+}
+
+struct ComedyPerformanceCalculator<'a> {
+    perf: &'a Performance,
+    play: &'a Play,
+}
+impl<'a> PerformanceCalculator for ComedyPerformanceCalculator<'a> {
+    fn amount(&self) -> u64 {
+        0
+    }
+}
+
+struct TragedyPerformanceCalculator<'a> {
+    perf: &'a Performance,
+    play: &'a Play,
+}
+impl<'a> PerformanceCalculator for TragedyPerformanceCalculator<'a> {
+    fn amount(&self) -> u64 {
+        0
+    }
+}
+
 pub struct StatementData<'a> {
     pub customer: String,
     pub performances: Vec<EnrichedPerformance<'a>>,
 }
 
 pub struct EnrichedPerformance<'a> {
-    perf: Performance,
+    calculator: Box<dyn PerformanceCalculator + 'a>,
+    perf:  &'a Performance,
     plays: &'a Plays,
 }
 
 impl<'a> EnrichedPerformance<'a> {
-    pub fn new(perf: Performance, plays: &'a Plays) -> Self {
-        EnrichedPerformance { perf, plays }
+    pub fn new(perf: &'a Performance, plays: &'a Plays) -> Self {
+        let calculator = Self::create_performance_calculator(perf, &plays[&perf.play_id]);
+        EnrichedPerformance {
+            perf,
+            plays,
+            calculator,
+        }
+    }
+    fn create_performance_calculator(perf: &'a Performance, play: &'a Play) -> Box<dyn PerformanceCalculator + 'a> {
+        match play.p_type.as_str() {
+            "tragedy" => Box::new(TragedyPerformanceCalculator { perf, play }),
+            "comedy" => Box::new(ComedyPerformanceCalculator { perf, play }),
+            play_type => panic!("unknown type:{}", play_type),
+        }
     }
     pub fn amount(&self) -> u64 {
         let mut result;
@@ -82,7 +119,7 @@ pub fn create_statement_data<'a>(invoice: &'a Invoice, plays: &'a Plays) -> Stat
         performances: invoice
             .performances
             .iter()
-            .map(|perf| EnrichedPerformance::new(perf.clone(), &plays))
+            .map(|perf| EnrichedPerformance::new(&perf, &plays))
             .collect(),
     };
     data

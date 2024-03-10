@@ -10,13 +10,10 @@ fn usd(penny: u64) -> Currency {
 
 pub fn statement(invoice: Value, plays: Value) -> String {
     let mut total_amount = 0;
-    let mut volume_credits = 0;
     let mut result = format!("Statement for {}\n", invoice["customer"].as_str().unwrap());
-
+    
     for perf in invoice["performances"].as_array().unwrap() {
         let play = &plays[perf["playID"].as_str().unwrap()];
-        // add volume credits
-        volume_credits += volume_credits_for(perf, play);
         // print line for this order
         result += &format!(
             " {}: {} ({} seats)\n",
@@ -26,12 +23,23 @@ pub fn statement(invoice: Value, plays: Value) -> String {
         );
         total_amount += amount_for(play, perf);
     }
+    
     result += &format!(
         "Amount owed is {}\n",
         usd(total_amount).format()
     );
-    result += &format!("You earned {} credits\n", volume_credits);
+    result += &format!("You earned {} credits\n", total_volume_credits(invoice, plays));
     result
+}
+
+fn total_volume_credits(invoice: Value, plays: Value) -> u64 {
+    let mut volume_credits = 0;
+    for perf in invoice["performances"].as_array().unwrap() {
+        let play = &plays[perf["playID"].as_str().unwrap()];
+        // add volume credits
+        volume_credits += volume_credits_for(perf, play);
+    }
+    volume_credits
 }
 
 fn volume_credits_for(perf: &Value, play: &Value) -> u64 {

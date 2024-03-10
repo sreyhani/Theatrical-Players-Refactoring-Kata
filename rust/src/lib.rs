@@ -26,36 +26,34 @@ struct Play {
 
 type Plays = HashMap<String, Play>;
 
-struct StatementData {
+struct StatementData<'a> {
     customer: String,
-    performances: Vec<Performance>,
-    plays: Plays,
+    performances: Vec<EnrichedPerformance<'a>>,
 }
 
-impl StatementData {
-    fn total_amount(&self) -> u64 {
-        let mut result = 0;
-        for perf in &self.performances {
-            result += self.amount_for(&perf);
-        }
-        result
+struct EnrichedPerformance<'a> {
+    perf: Performance,
+    plays: &'a Plays,
+}
+impl<'a> EnrichedPerformance<'a> {
+    fn new(perf: Performance, plays: &'a Plays) -> Self {
+        EnrichedPerformance { perf, plays }
     }
-
-    fn amount_for(&self, perf: &Performance) -> u64 {
+    fn amount(&self) -> u64 {
         let mut result;
-        match self.play_for(perf).p_type.as_str() {
+        match self.play().p_type.as_str() {
             "tragedy" => {
                 result = 40000;
-                if perf.audience > 30 {
-                    result += 1000 * (perf.audience - 30);
+                if self.perf.audience > 30 {
+                    result += 1000 * (self.perf.audience - 30);
                 }
             }
             "comedy" => {
                 result = 30000;
-                if perf.audience > 20 {
-                    result += 10000 + 500 * (perf.audience - 20);
+                if self.perf.audience > 20 {
+                    result += 10000 + 500 * (self.perf.audience - 20);
                 }
-                result += 300 * perf.audience;
+                result += 300 * self.perf.audience;
             }
             play_type => {
                 panic!("unknown type:{}", play_type);
@@ -64,26 +62,40 @@ impl StatementData {
         result
     }
 
+    fn volume_credits(&self) -> u64 {
+        let mut result = max(self.perf.audience - 30, 0);
+        // add extra credit for every ten comedy attendees
+        if "comedy" == self.play().p_type {
+            result += (self.perf.audience as f64 / 5.0).floor() as u64;
+        }
+        result
+    }
+
+    fn play(&self) -> &Play {
+        &self.plays[&self.perf.play_id]
+    }
+
+    fn audience(&self) -> u64 {
+        self.perf.audience
+    }
+}
+
+impl<'a> StatementData<'a> {
+    fn total_amount(&self) -> u64 {
+        let mut result = 0;
+        for perf in &self.performances {
+            result += perf.amount();
+        }
+        result
+    }
+
     fn total_volume_credits(self) -> u64 {
         let mut result = 0;
         for perf in &self.performances {
             // add volume credits
-            result += self.volume_credits_for(perf);
+            result += perf.volume_credits();
         }
         result
-    }
-
-    fn volume_credits_for(&self, perf: &Performance) -> u64 {
-        let mut result = max(perf.audience - 30, 0);
-        // add extra credit for every ten comedy attendees
-        if "comedy" == self.play_for(perf).p_type {
-            result += (perf.audience as f64 / 5.0).floor() as u64;
-        }
-        result
-    }
-
-    fn play_for(&self, perf: &Performance) -> &Play {
-        &self.plays[&perf.play_id]
     }
 }
 
@@ -97,8 +109,11 @@ pub fn statement(invoice: Value, plays: Value) -> String {
     let plays: Plays = from_value(plays).unwrap();
     let data = StatementData {
         customer: invoice.customer,
-        performances: invoice.performances,
-        plays: plays,
+        performances: invoice
+            .performances
+            .iter()
+            .map(|perf| EnrichedPerformance::new(perf.clone(), &plays))
+            .collect(),
     };
     render_plain_statement(data)
 }
@@ -110,9 +125,9 @@ fn render_plain_statement(data: StatementData) -> String {
         // print line for this order
         result += &format!(
             " {}: {} ({} seats)\n",
-            data.play_for(perf).name,
-            usd(data.amount_for(perf)).format(),
-            perf.audience
+            perf.play().name,
+            usd(perf.amount()).format(),
+            perf.audience()
         );
     }
     result += &format!("Amount owed is {}\n", usd(data.total_amount()).format());

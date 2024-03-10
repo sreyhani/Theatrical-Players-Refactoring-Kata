@@ -11,7 +11,7 @@ fn usd(penny: u64) -> Currency {
     Currency::new_float(penny as f64 / 100.0, Some(otp))
 }
 
-pub fn statement(invoice: Value, plays: Value) -> String {
+pub fn plain_statement(invoice: Value, plays: Value) -> String {
     let invoice: types::Invoice = from_value(invoice).unwrap();
     let plays: types::Plays = from_value(plays).unwrap();
     render_plain_statement(create_statement_data(&invoice, &plays))
@@ -31,5 +31,35 @@ fn render_plain_statement(data: StatementData) -> String {
     }
     result += &format!("Amount owed is {}\n", usd(data.total_amount()).format());
     result += &format!("You earned {} credits\n", data.total_volume_credits());
+    result
+}
+
+pub fn html_statement(invoice: Value, plays: Value) -> String {
+    let invoice: types::Invoice = from_value(invoice).unwrap();
+    let plays: types::Plays = from_value(plays).unwrap();
+    render_html_statement(create_statement_data(&invoice, &plays))
+}
+
+fn render_html_statement(data: StatementData) -> String {
+    let mut result = format!("<h1>Statement for {}</h1>\n", data.customer);
+    result += "<table>\n";
+    result += "<tr><th>play</th><th>seats</th><th>cost</th></tr>";
+    for perf in &data.performances {
+        result += &format!(
+            " <tr><td>{}</td><td>{}</td>",
+            perf.play().name,
+            perf.audience()
+        );
+        result += &format!("<td>{}</td></tr>\n", usd(perf.amount()));
+    }
+    result += "</table>\n";
+    result += &format!(
+        "<p>Amount owed is <em>{}</em></p>\n",
+        usd(data.total_amount())
+    );
+    result += &format!(
+        "<p>You earned <em>{}</em> credits</p>\n",
+        data.total_volume_credits()
+    );
     result
 }

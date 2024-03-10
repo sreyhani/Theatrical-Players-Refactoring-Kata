@@ -1,7 +1,28 @@
-use std::cmp::max;
+use std::{cmp::max, collections::HashMap};
 
 use currency_rs::{Currency, CurrencyOpts};
-use serde_json::Value;
+use serde::Deserialize;
+use serde_json::{Value, from_str, from_value};
+
+#[derive(Deserialize)]
+struct Performance {
+    #[serde(alias = "playID")]
+    play_id: String,
+    audience: u64,
+}
+
+#[derive(Deserialize)]
+struct Invoice {
+    customer: String,
+    performances: Vec<Performance>,
+}
+
+#[derive(Deserialize)]
+struct Play {
+    name: String,
+    #[serde(alias = "type")]
+    p_type: String,
+}
 
 fn usd(penny: u64) -> Currency {
     let otp = CurrencyOpts::new().set_symbol("$").set_precision(2);
@@ -9,6 +30,7 @@ fn usd(penny: u64) -> Currency {
 }
 
 pub fn statement(invoice: Value, plays: Value) -> String {
+
     let mut result = format!("Statement for {}\n", invoice["customer"].as_str().unwrap());
 
     for perf in invoice["performances"].as_array().unwrap() {

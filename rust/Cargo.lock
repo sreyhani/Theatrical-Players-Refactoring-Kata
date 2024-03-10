@@ -214,6 +214,7 @@ version = "0.1.0"
 dependencies = [
  "currency_rs",
  "insta",
+ "serde",
  "serde_json",
 ]
 

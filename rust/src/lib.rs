@@ -3,9 +3,9 @@ use std::cmp::max;
 use currency_rs::{Currency, CurrencyOpts};
 use serde_json::Value;
 
-fn usd(value: f64) -> Currency {
+fn usd(penny: u64) -> Currency {
     let otp = CurrencyOpts::new().set_symbol("$").set_precision(2);
-    Currency::new_float(value, Some(otp))
+    Currency::new_float(penny as f64 / 100.0, Some(otp))
 }
 
 pub fn statement(invoice: Value, plays: Value) -> String {
@@ -21,14 +21,14 @@ pub fn statement(invoice: Value, plays: Value) -> String {
         result += &format!(
             " {}: {} ({} seats)\n",
             play["name"].as_str().unwrap(),
-            usd(amount_for(play, perf) as f64 / 100 as f64).format(),
+            usd(amount_for(play, perf)).format(),
             perf["audience"].as_u64().unwrap()
         );
         total_amount += amount_for(play, perf);
     }
     result += &format!(
         "Amount owed is {}\n",
-        usd(total_amount as f64 / 100 as f64).format()
+        usd(total_amount).format()
     );
     result += &format!("You earned {} credits\n", volume_credits);
     result
